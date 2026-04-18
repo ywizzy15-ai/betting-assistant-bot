@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#ffffff">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <title>Betting Assistant MiniApp</title>
+    <style>
+        :root {
+            --tg-bg: var(--tg-theme-bg-color, #ffffff);
+            --tg-text: var(--tg-theme-text-color, #000000);
+            --tg-sec-bg: var(--tg-theme-secondary-bg-color, #f5f5f7);
+            --tg-btn: var(--tg-theme-button-color, #3390ec);
+            --tg-btn-text: var(--tg-theme-button-text-color, #ffffff);
+            --tg-hint: var(--tg-theme-hint-color, #8e8e93);
+            --tg-divider: var(--tg-theme-section-separator-color, #e5e5ea);
+            --tg-success: #34c759;
+            --tg-warn: #ffcc00;
+            --tg-danger: #ff3b30;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: var(--tg-sec-bg);
+            color: var(--tg-text);
+            line-height: 1.4;
+            padding: 16px;
+            padding-bottom: env(safe-area-inset-bottom);
+            min-height: 100vh;
+        }
+        .container { max-width: 640px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 18px; }
+        .header h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.3px; }
+        .header p { font-size: 13px; color: var(--tg-hint); margin-top: 4px; }
+
+        .scroll-x { overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; }
+        .scroll-x::-webkit-scrollbar { display: none; }
+
+        .tabs, .filters { display: flex; gap: 8px; margin-bottom: 12px; }
+        .tab, .filt {
+            flex-shrink: 0; padding: 10px 14px; border-radius: 10px;
+            background: var(--tg-bg); border: 1px solid var(--tg-divider);
+            font-size: 13px; font-weight: 600; cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.2, 0, 0, 1); user-select: none;
+        }
+        .tab.active, .filt.active {
+            background: var(--tg-btn); color: var(--tg-btn-text); border-color: transparent;
+            box-shadow: 0 4px 10px rgba(51, 144, 236, 0.25); transform: scale(0.98);
+        }
+
+        .bets-list { display: flex; flex-direction: column; gap: 12px; }
+        .card {
+            background: var(--tg-bg); border-radius: 14px; padding: 14px;
+            border: 1px solid var(--tg-divider); box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+            animation: slideIn 0.35s cubic-bezier(0.2, 0, 0, 1) both;
+        }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+        .teams { font-size: 15px; font-weight: 700; line-height: 1.3; }
+        .badge {
+            padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap;
+        }
+        .badge.high { background: #dcfce7; color: #166534; }
+        .badge.med  { background: #fef9c3; color: #854d0e; }
+        .badge.low  { background: #fee2e2; color: #991b1b; }
+
+        .meta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; font-size: 12px; color: var(--tg-hint); margin: 10px 0; }
+        .meta strong { color: var(--tg-text); display: block; font-weight: 600; margin-top: 2px; }
+
+        .insight {
+            background: rgba(51, 144, 236, 0.08); color: var(--tg-btn);
+            padding: 8px 10px; border-radius: 8px; font-size: 12px;
+            line-height: 1.4; margin-bottom: 12px; border-left: 3px solid var(--tg-btn);
+        }
+
+        .copy-btn {
+            width: 100%; padding: 12px; border: none; border-radius: 10px;
+            background: var(--tg-btn); color: var(--tg-btn-text);
+            font-size: 14px; font-weight: 600; cursor: pointer;
+            transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; gap: 6px;
+        }
+        .copy-btn:active { transform: scale(0.98); opacity: 0.85; }
+        .copy-btn.copied { background: var(--tg-success); }
+
+        .loading, .empty { text-align: center; padding: 32px 16px; color: var(--tg-hint); font-size: 14px; }
+        .spinner { width: 24px; height: 24px; border: 3px solid var(--tg-divider); border-top-color: var(--tg-btn); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 30px auto; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Betting Insights</h1>
+            <p>Triple-layer probability analysis & value detection</p>
+        </div>
+
+        <div class="scroll-x">
+            <div class="tabs" id="pTabs">
+                <div class="tab active" data-p="all">🌐 All Platforms</div>
+                <div class="tab" data-p="SportyBet">SportyBet</div>
+                <div class="tab" data-p="Bet9ja">Bet9ja</div>
+                <div class="tab" data-p="Stake">Stake</div>
+            </div>
+        </div>
+
+        <div class="scroll-x">
+            <div class="filters" id="mFilters">
+                <div class="filt active" data-m="all">All Markets</div>
+                <div class="filt" data-m="Match Winner">Winner</div>
+                <div class="filt" data-m="Over 2.5">O2.5</div>
+                <div class="filt" data-m="Draw">Draw</div>
+                <div class="filt" data-m="Corners">Corners</div>
+            </div>
+        </div>
+
+        <div class="bets-list" id="betsList">
+            <div class="spinner"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const tg = window.Telegram.WebApp;
+            tg.ready();
+            tg.expand();
+            if (tg.setHeaderColor) tg.setHeaderColor('secondary_bg_color');
+
+            let bets = [], pFilt = 'all', mFilt = 'all';
+
+            async function load() {
+                const list = document.getElementById('betsList');
+                list.innerHTML = '<div class="spinner"></div>';
+                try {
+                    const res = await fetch('/api/bets');
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    bets = await res.json();
+                    render();
+                } catch (e) {
+                    list.innerHTML = `<div class="empty">Failed to load data.<br><small>${e.message}</small></div>`;
+                }
+            }
+
+            function render() {
+                const list = document.getElementById('betsList');
+                let f = bets;
+
+                if (pFilt !== 'all') f = f.filter(b => (b.platforms || []).includes(pFilt));
+                if (mFilt !== 'all') f = f.filter(b => (b.market || '').toLowerCase().includes(mFilt.toLowerCase()));
+
+                if (!f.length) {
+                    list.innerHTML = '<div class="empty">No opportunities match your filters.<br>Adjust tabs or wait for new predictions.</div>';
+                    return;
+                }
+
+                list.innerHTML = f.map((b, i) => {
+                    const grade = b.grade?.toUpperCase() || 'LOW';
+                    const cls = grade === 'HIGH' ? 'high' : grade === 'MEDIUM' ? 'med' : 'low';
+                    const ml = b.ml_prob ? (b.ml_prob * 100).toFixed(1) : 'N/A';
+                    const poly = b.poly_prob ? (b.poly_prob * 100).toFixed(1) : 'N/A';
+                    const edge = b.edge_percentage?.toFixed(1) || '0.0';
+                    const conf = b.confidence?.toFixed(1) || '0.0';
+                    const copyTxt = `${b.market || 'Bet'} | ${b.teams || 'Teams'} | Odds ${b.odds || '-'}`;
+                    
+                    return `<div class="card" style="animation-delay: ${i * 0.05}s">
+                        <div class="card-header">
+                            <div class="teams">${b.teams || 'Unknown Teams'}</div>
+                            <div class="badge ${cls}">🔐 ${conf}% ${grade}</div>
+                        </div>
+                        <div class="meta">
+                            <span>Market<span><strong>${b.market || 'N/A'}</strong></span></span>
+                            <span>Odds<span><strong>${b.odds || '-'}</strong></span></span>
+                            <span>ML Model<span><strong>${ml}%</strong></span></span>
+                            <span>Polymarket<span><strong>${poly}%</strong></span></span>
+                        </div>
+                        <div class="insight">💡 ${b.insight || 'Analyzing market divergence...'}</div>
+                        <button class="copy-btn" onclick="window.doCopy(this, '${copyTxt.replace(/'/g, "\\'")}')">📋 Copy Booking Details</button>
+                    </div>`;
+                }).join('');
+            }
+
+            window.doCopy = function(btn, text) {
+                navigator.clipboard.writeText(text).then(() => {
+                    btn.innerHTML = '✅ Copied to Clipboard';
+                    btn.classList.add('copied');
+                    tg.HapticFeedback?.notificationOccurred('success');
+                    setTimeout(() => {
+                        btn.innerHTML = '📋 Copy Booking Details';
+                        btn.classList.remove('copied');
+                    }, 1500);
+                }).catch(() => tg.HapticFeedback?.notificationOccurred('error'));
+            };
+
+            document.getElementById('pTabs').addEventListener('click', e => {
+                const t = e.target.closest('.tab'); if (!t) return;
+                document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+                t.classList.add('active');
+                pFilt = t.dataset.p; render();
+            });
+
+            document.getElementById('mFilters').addEventListener('click', e => {
+                const f = e.target.closest('.filt'); if (!f) return;
+                document.querySelectorAll('.filt').forEach(el => el.classList.remove('active'));
+                f.classList.add('active');
+                mFilt = f.dataset.m; render();
+            });
+
+            load();
+            setInterval(load, 30000); // Auto-refresh every 30s
+        });
+    </script>
+</body>
+</html>
+
