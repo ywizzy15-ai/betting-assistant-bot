@@ -21,11 +21,17 @@ PORT = int(os.getenv("PORT", "8080"))
 WEBHOOK_PATH = f"/webhook/{BOT_TOKEN.split(':')[0]}"  # Obscured path for security
 WEBHOOK_URL = f"{RENDER_URL}{WEBHOOK_PATH}"
 
-# ==================== PROJECT IMPORTS ====================
+# # ==================== PROJECT IMPORTS ====================
+# Core
 from database import db
-from bot import bot_router
-from miniapp_api import api_bets_route
-from health import health_route, ready_route
+
+# Telegram handlers (in telegram/ folder)
+from telegram.bot import bot_router
+from telegram.miniapp_api import api_bets_route
+
+# Web routes (in web/ folder)
+from web.health import health_route, ready_route
+
 
 # ==================== LOGGING SETUP ====================
 logging.basicConfig(
